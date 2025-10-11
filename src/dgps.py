@@ -83,6 +83,24 @@ def generate_response(X, beta, sigma, rng=None):
 
 def generate_data(N, n, tau0, tau1, rho, sigma, rng=None):
     """
+        Generate data for logistic regression simulation
+
+    Parameters
+    ----------
+    N : int
+        Number of observations
+    n : int
+        Number of covariates
+    tau0 : float
+        Standard deviation of the Gaussian noise component.
+    tau1 : float
+        Scale parameter of the exponential distribution for the signal component.
+    rho : float
+        Correlation between covariates
+    sigma : float
+        Standard deviation of random Gaussian noise
+    rng : np.random.Generator, optional
+        Random number generator for reproducibility. If None, a new generator is created.
     """
     if rng is None:
         rng = np.random.default_rng()
