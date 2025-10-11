@@ -15,7 +15,7 @@ and two empirical Bayes hierarchical modeling methods.
 
 ## Data Generating Mechanisms:
 The data generating process described in the paper is a
-hierarchical model with the first layer (stage 1) is a
+hierarchical model where the first layer (stage 1) is a
 logistic model connecting the mean of binary outcome
 data $y$ to a linear predictor through a logit link
 function. The linear predictor is a set of covariates
