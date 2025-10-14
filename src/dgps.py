@@ -16,6 +16,11 @@ def generate_beta(n, tau0, tau1, rng=None):
         Scale parameter of the exponential distribution for the signal component.
     rng : np.random.Generator, optional
         Random number generator for reproducibility. If None, a new generator is created.
+
+    Returns
+    -------
+    beta : array
+        Coefficients for regression model
     """
     if rng is None:
         rng = np.random.default_rng()
