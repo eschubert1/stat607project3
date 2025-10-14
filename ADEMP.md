@@ -153,9 +153,10 @@ Note that trials were discarded if the ML estimates were infinite.
 
 ## Performance Measures
 To assess the performance of the estimation
-methods, the coverage rate and mean lengths of the 95% confidence 
+methods, the mean coverage rate and mean lengths of the 95% confidence 
 intervals are computed. Additionally, the RMSE of the point
-estimates is also computed
+estimates is also computed. Means are computed across all
+coefficient estimates for each method.
 
 Other "miscellaneous measures" are calculated, such as the
 percentage of trials where the empirical Bayes procedure
