@@ -11,6 +11,7 @@ def simulate_data(all_scenarios, rng_streams):
         Generate and save data
         for all simulation scenarios.
     """
+    sim = 0
     for scenario in all_scenarios:
         # Unpack parameters
         (param_id, run_date, n_sim, N, n, rho, sigma, tau0, tau1,
@@ -20,9 +21,12 @@ def simulate_data(all_scenarios, rng_streams):
         betas = []
         dataframes = []
         rng_states = []
+
+        rng = rng_streams[sim]
+        n_sim = int(n_sim)
+        sim = sim+1
         for i in range(n_sim):
-            rng = rng_streams[i]
-            rng_states.append(rng.bit_generator.state())
+            rng_states.append(rng)
             y, X, beta = generate_data(N, n, tau0, tau1, rho, sigma, rng=rng)
             X = pd.DataFrame(X, columns=[f'X{i+1}' for i in range(n)])
             y = pd.Series(y, name='y')
@@ -51,6 +55,7 @@ def estimate(scenario, dataframes):
     taus = []
 
     # Unpack data
+    n_sim = int(n_sim)
     for i in range(n_sim):
         y = dataframes[i].iloc[:,0].to_numpy()
         X = dataframes[i].iloc[:,1:].to_numpy()
@@ -71,7 +76,7 @@ def estimate(scenario, dataframes):
 def estimate_all(all_scenarios):
     for scenario in all_scenarios:
         param_id = scenario[0]["param_id"]
-        with open(f"../data/simulated/{param_id}_data.pkl") as file:
+        with open(f"data/simulated/{param_id}_data.pkl", "rb") as file:
             scn, dataframes, betas, rng_states = pickle.load(file)
 
         estimate(scn, dataframes)
@@ -81,11 +86,11 @@ def evaluate(all_scenarios):
         param_id = scenario[0]["param_id"]
         
         # Load data
-        with open(f"../data/simulated/{param_id}_data.pkl") as file:
+        with open(f"data/simulated/{param_id}_data.pkl", "rb") as file:
             scn, dataframes, betas, rng_states = pickle.load(file)
 
         # Load estimates
-        with open(f"../results/raw/estimates/{param_id}_estimates.pkl") as file:
+        with open(f"results/raw/estimates/{param_id}_estimates.pkl", "rb") as file:
             scn, estimates, variances, taus = pickle.load(file)
 
         sim_metrics = compute_metrics(estimates, variances, taus, betas)
@@ -95,20 +100,20 @@ def evaluate(all_scenarios):
 
 def save_data(scenario, dataframes, betas, rng_states):
     params = scenario[0]
-    param_id = scenario['param_id']
-    with open(f"../data/simulated/{param_id}_data.pkl") as file:
-        pickle.dump(scenario, dataframes, betas, rng_states)
+    param_id = params['param_id']
+    with open(f"data/simulated/{param_id}_data.pkl", "wb") as file:
+        pickle.dump((scenario, dataframes, betas, rng_states), file)
 
 def save_estimates(scenario, estimates, variances, taus):
     params = scenario[0]
-    param_id = scenario['param_id']
-    with open(f"../results/raw/estimates/{param_id}_estimates.pkl") as file:
-        pickle.dump(scenario, estimates, variances, taus)
+    param_id = params['param_id']
+    with open(f"results/raw/estimates/{param_id}_estimates.pkl", "wb") as file:
+        pickle.dump((scenario, estimates, variances, taus), file)
 
 def save_metrics(scenario, sim_metrics):
     params = scenario[0]
-    param_id = scenario['param_id']
-    with open(f"../results/metrics/{param_id}_metrics.pkl") as file:
-        pickle.dump(scenario, sim_metrics)
+    param_id = params['param_id']
+    with open(f"results/metrics/{param_id}_metrics.pkl", "wb") as file:
+        pickle.dump((scenario, sim_metrics), file)
 
 
