@@ -98,6 +98,7 @@ def generate_rng_streams(scenarios, seed):
     rng = np.random.default_rng(seed=seed)
     N = len(scenarios)
     child_rngs = rng.spawn(N)
+    return child_rngs
 
 ALL_SCENARIOS = configure_parameters(config_param, config_kwargs)
 RNG_STREAMS = generate_rng_streams(ALL_SCENARIOS, 123)
