@@ -24,8 +24,34 @@ def mle(y, X):
     model_results = model.fit()
     ml_coefs = model_results.params
     information_matrix = -model.hessian(ml_coefs)
-    ml_cov = np.linalg.inv(information_matrix)
+    try:
+        ml_cov = np.linalg.inv(information_matrix)
+    except:
+        ml_cov = np.zeros(np.shape(information_matrix))
+   
     return ml_coefs, ml_cov
+
+def logistic_irls(y, X, tol=1e-8, max_iter=1000):
+    N = np.shape(X)[0]
+    n = np.shape(X)[1]
+
+    Z = np.hstack((np.ones((N,1)), X))
+    beta = np.ones(n+1)
+    convergence = 1
+    step_size = 1
+    iter = 0
+    while (convergence > tol) & (iter < max_iter):
+        iter = iter+1
+        mu = 1/(1+np.exp(-Z@beta))
+        S = np.diag(mu*(1-mu))
+        beta_new = beta + step_size*np.linalg.inv(Z.T@S@Z)@Z.T@(y-mu)
+        convergence = np.sqrt(sum(abs(beta_new-beta)))
+        step_size = step_size/2
+        beta = beta_new
+    mu_hat = 1/(1+np.exp(-X@beta))
+    S_hat = np.diag(mu_hat*(1-mu_hat))
+    mle_cov = np.linalg.inv(Z.T@S@Z)
+    return beta[1:], mle_cov[1:,1:]
 
 # Still sometimes returns negative variance estimates...
 def empirical_bayes(y, X, ml_coefs, ml_cov, tol=1e-8, max_iter=100):
@@ -88,8 +114,15 @@ def empirical_bayes(y, X, ml_coefs, ml_cov, tol=1e-8, max_iter=100):
     R = e.T@W@e/np.sum(W)
     Vbar = np.sum(W@Vhat)/np.sum(W)
     
+    H = Z@np.linalg.inv(Z.T@W@Z)@Z.T@W
+    T = tau2*np.identity(n)
+    Vstar = (n-p-2)*Vhat/(n-p)
+    Tstar = T + Vhat - Vstar
+    G = W@(Vstar@H@W+Tstar)
+    beta_hat = G@ml_coefs
+
     B = (n-2-p)/(n-p)*W*Vhat
-    beta_hat = B@(np.ones(n))*mu_hat + (np.identity(n)-B)@ml_coefs
+    #beta_hat = B@(np.ones(n))*mu_hat + (np.identity(n)-B)@ml_coefs
 
 
     H = Z@np.linalg.inv(Z.T@W@Z)@Z.T@W
@@ -239,7 +272,10 @@ def compute_estimates(y, X, tau_guess, tol=1e-8, max_iter=100, alpha=0.10):
     --------
     mle, empirical_bayes, semi_bayes, preliminary_testing
     """
+    n = np.shape(X)[1]
     ml_beta, ml_cov = mle(y,X)
+    if np.array_equal(ml_cov, np.zeros((n,n))):
+        return np.array([[None]*n]*6), np.array([[None]*n]*6), None
     eb_beta, eb_cov, tau2 = empirical_bayes(y, X, ml_beta, ml_cov, tol=tol, max_iter=max_iter)
     sb_half_beta, sb_half_cov = semi_bayes(y, X, ml_beta, ml_cov, tau_guess=0.5*tau_guess)
     sb_beta, sb_cov = semi_bayes(y, X, ml_beta, ml_cov, tau_guess=tau_guess)
