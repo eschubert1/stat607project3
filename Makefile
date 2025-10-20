@@ -1,4 +1,4 @@
-all: simulate analyze figures
+all: setup simulate analyze figures
 
 simulate: src/simulation.py src/config.py
 	python -c "from src.simulation import simulate_data; from src.config import ALL_SCENARIOS, RNG_STREAMS; simulate_data(ALL_SCENARIOS, RNG_STREAMS)"
@@ -18,6 +18,7 @@ clean:
 	rm data/simulated/*.pkl
 	rm results/raw/estimates/*.pkl
 	rm results/raw/metrics/*.pkl
+	rm results/figures/*.pdf
 
 test:
 	pytest tests/run_tests.py
