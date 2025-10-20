@@ -1,5 +1,6 @@
 import numpy as np
 from datetime import date
+import copy
 
 config_param = {
     'run_date': date.today(), 
@@ -16,7 +17,7 @@ config_param = {
 
 config_kwargs = {
     'tol' : 1e-8,
-    'max_iter' : 100,
+    'max_iter' : 1000,
     'alpha' : 0.10,
     'effect_prob' : 0.2
 }
@@ -35,7 +36,7 @@ def configure_parameters(config_param, config_kwargs):
     for N in n_obs:
         for n in n_predict:
             # Do not include combinations where N/n is too small or large
-            if N/n <= 2 or N/n >= 50:
+            if N/n <= 2 or N/n >= 200:
                 continue
 
             # Increase number of simulation iterations for small samples
@@ -79,14 +80,14 @@ def configure_parameters(config_param, config_kwargs):
         if key == 'tau':
             for t0 in config_param['tau0'][1:]:
                 for t1 in config_param['tau1'][1:]:
-                    new_scenario = default
+                    new_scenario = copy.deepcopy(default)
                     new_scenario.update({'tau0' : t0})
                     new_scenario.update({'tau1' : t1})
                     new_scenario.update({'param_id' : f"{key}_{t0}_{t1}_nonstandard"})
                     non_standard_scenarios.append((new_scenario, config_kwargs))
         else:
             for val in config_param[key][1:]:
-                new_scenario = default
+                new_scenario = copy.deepcopy(default)
                 new_scenario.update({key : val})
                 new_scenario.update({'param_id' : f"{key}_{val}_nonstandard"})
                 non_standard_scenarios.append((new_scenario, config_kwargs))
@@ -101,4 +102,4 @@ def generate_rng_streams(scenarios, seed):
     return child_rngs
 
 ALL_SCENARIOS = configure_parameters(config_param, config_kwargs)
-RNG_STREAMS = generate_rng_streams(ALL_SCENARIOS, 123)
+RNG_STREAMS = generate_rng_streams(ALL_SCENARIOS, 503823)
