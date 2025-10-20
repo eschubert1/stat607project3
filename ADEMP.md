@@ -76,6 +76,29 @@ The parameter settings which were varied individually are:
 Additionally, for one simulation, $X$ was generated with Gaussian rows 
 instead of Bernoulli by removing the dichotomization step.
 
+Below is a table summarizing the parameter configurations:
+
+| n | N | Number of simulations | r | $\sigma$ | $\tau_0$ | $\tau_1$ | $E(\sum_k Y_k)$ | Covariate distribution |
+| :--: | :--: |  :------------: | :--: | :---: | :---: | :---: | :------: | :------: |
+| 4 | 40 | 4000 | 0.5 | 0.5 | 0.2 | 0.2 | $\frac{N}{2}$ | Bernoulli |
+| 4 | 100 | 2000 | 0.5 | 0.5 | 0.2 | 0.2 | $\frac{N}{2}$ | Bernoulli |
+| 4 | 500 | 2000 | 0.5 | 0.5 | 0.2 | 0.2 | $\frac{N}{2}$ | Bernoulli |
+| 10 | 40 | 1600 | 0.5 | 0.5 | 0.2 | 0.2 | $\frac{N}{2}$ | Bernoulli |
+| 10 | 100 | 800 | 0.5 | 0.5 | 0.2 | 0.2 | $\frac{N}{2}$ | Bernoulli |
+| 10 | 500 | 800 | 0.5 | 0.5 | 0.2 | 0.2 | $\frac{N}{2}$ | Bernoulli |
+| 20 | 100 | 400 | 0.5 | 0.5 | 0.2 | 0.2 | $\frac{N}{2}$ | Bernoulli |
+| 20 | 500 | 400 | 0.5 | 0.5 | 0.2 | 0.2 | $\frac{N}{2}$ | Bernoulli |
+| 20 | 2000 | 400 | 0.5 | 0.5 | 0.2 | 0.2 | $\frac{N}{2}$ | Bernoulli |
+| 10 | 100 | 800 | 0 | 0.5 | 0.2 | 0.2 | $\frac{N}{2}$ | Bernoulli |
+| 10 | 100 | 800 | 0.9 | 0.5 | 0.2 | 0.2 | $\frac{N}{2}$ | Bernoulli |
+| 10 | 100 | 800 | 0.5 | 0.5 | 0.2 | 0.2 | $\frac{N}{4}$ | Bernoulli |
+| 10 | 100 | 800 | 0.5 | 0.5 | 0 | 0 | $\frac{N}{2}$ | Bernoulli |
+| 10 | 100 | 800 | 0.5 | 0.5 | 0.4 | 0 | $\frac{N}{2}$ | Bernoulli |
+| 10 | 100 | 800 | 0.5 | 0.5 | 0 | 0.4 | $\frac{N}{2}$ | Bernoulli |
+| 10 | 100 | 800 | 0.5 | 0.5 | 0.4 | 0.4 | $\frac{N}{2}$ | Bernoulli |
+| 10 | 100 | 800 | 0.5 | 2 | 0.2 | 0.2 | $\frac{N}{2}$ | Bernoulli |
+| 10 | 100 | 800 | 0.5 | 0.5 | 0.2 | 0.2 | $\frac{N}{2}$ | Normal |
+
 ## Estimands:
 Estimates $n \times 1$ vector or regression coefficients $\beta$,
 and a 95% confidence interval for $\beta$, computed as
@@ -93,30 +116,47 @@ are halved at each iteration.
 Estimation is conducted in two stages.
 First, MLE is performed on the stage 1 model to obtain $\hat{\beta}$
 and the inverse of the observed information matrix at $\hat{\beta}$:
-$\hat{V}$. Then, stage 2 model estimates are computed using method of moments
-estimators. Specifically, the following system of 7 equations are solved:
-
+$\hat{V}$. Then, stage 2 model estimates are computed using a method of moments
+algorithm. Specifically, we set $\tau^2 = 0$ and then iteratively update
+by computing the following:
 $$
 \begin{aligned}
 W^* = & (\hat{V} + \tilde{\tau}^2I)^{-1} //
-\mu^* = & Z\pi^* //
-\tilde{\tau}^2 = & nR/(n-p) - \bar{V}^* //
-R = & e^TW^*e/(\sum_{ij} W_{ij}^*) //
 \pi^* = & (Z^T W^* Z)^{-1}Z^T W^* \hat{\beta} //
-\bar{V}^* = & W^* \hat{V}/(\sum_{ij} W_{ij}^*) //
+\mu^* = & Z\pi^* //
 e = & \hat{\beta} - \mu^* //
+\bar{V}^* = & \sum_{ij}(W^* \hat{V})/(\sum_{ij} W_{ij}^*) //
+R = & e^TW^*e/(\sum_{ij} W_{ij}^*) //
+\tilde{\tau}^2 = & nR/(n-p) - \bar{V}^* //
 \end{aligned}
 $$
-and then $B^* = (n-p-2)W^*\hat{V}/(n-p)$ is computed.
+until the updates to $\tau$ are approximately zero. At each step,
+it is checked if the estimated $\tau$ is negative, and if so,
+$\tau$ is set to 0 instead and the loop is terminated. Note that $Z$ is the
+design matrix of the stage II model. Also, these equations differ
+from those in the paper, since there were some typographical errors
+in the equations. Once a value of $\tau$ is determined, the
+above quantities are computed once more along with the following
+to obtain a final estimate of $\beta$:
+
+$$
+\begin{aligned}
+H^* = & Z(Z^T W^* Z)^{-1} Z^T W^* //
+V^* = (n-p-2)*\hat{V}/(n-p)
+T^* = \tau^2I + \hat{V} - V^*
+G = W^*@(V^*@H^*@W^*+T^*)
+\end{aligned}
+$$
+
 Then, the mean of the posterior distribution is the final estimate of
-$\beta$, approximated by $\beta^* = B^* \mu^* + (I-B^*)\hat{\beta}$.
+$\beta$, approximated by $\beta^* = G\hat{\beta}$.
 The variance of $\beta^*_i$ was approximated by
 $$
 v_i^* = \hat{V}_{ii} - (1 - H^*_{ii})(\hat{V}B^*)_{ii} + 
 (\bar{V}^*_{ii} + \tilde{\tau}^2 I)W^*_{ii}A_{ii}
 $$
-where $H^* = Z(Z^T W^* Z)^{-1} Z^T W^*$ and
-$A = 2B^*e(B^* e)^T/(n-p)$.
+where $H^* = Z(Z^T W^* Z)^{-1} Z^T W^*$,
+$A = 2B^*e(B^* e)^T/(n-p)$, and $B^* = W^*V^*$.
 
 ### Semi-Bayes
 Estimators are computed similar to the empirical Bayes approach,
