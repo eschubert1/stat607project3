@@ -171,7 +171,7 @@ def save_intervals(all_scenarios):
     # Save all intervals of beta 1
     intervals = pd.DataFrame(columns=["param_id", "N", "n", 
                                       "method", "lower", "upper"])
-    methods = ["mle", "eb", "sb_half", "sb", "sb_two", "pt"]
+    methods = ["ML", "EB", "Semi-Bayes 0.5", "Semi-Bayes", "Semi-Bayes 2", "PT"]
     for scenario, kwargs in all_scenarios:
         param_id = scenario["param_id"]
         N = scenario["n_obs"]
