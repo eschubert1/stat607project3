@@ -1,10 +1,15 @@
 import numpy as np
 
-def find_valid_est(pt_estimates):
+def find_valid_est(estimates):
     """
-        Find preliminary testing estimates which are not None
+        Find estimates which are not None
     """
-    valid_indices = [index for index, element in enumerate(pt_estimates[:,0]) if element != None]
+    if len(np.shape(estimates)) == 2:
+        valid_indices = ([index for index, element 
+                          in enumerate(estimates[:,0]) if element != None])
+    else:
+        valid_indices = ([index for index, element 
+                          in enumerate(estimates[:,0,0]) if element != None])
     return(valid_indices)
 
 def pivot_beta(beta, n_obs, n_coefs, n_methods):
@@ -39,8 +44,11 @@ def mean_coverage_rate(lower, upper, B):
     """
         Compute mean coverage rates for each method
     """
-    covered = lower <= B & upper >= B
-    mcr = np.mean(covered, axis=(0,2))
+    covered = (lower <= B) & (upper >= B)
+    if len(np.shape(covered)) == 2:
+        mcr = np.nanmean(covered)
+    else:
+        mcr = np.nanmean(covered, axis=(0,2))
 
     return mcr
 
@@ -49,7 +57,10 @@ def mean_length(lower, upper):
         Compute mean length of confidence intervals
     """
     dists = upper - lower
-    mean_dist = np.mean(dists, axis=(0,2))
+    if len(np.shape(dists)) == 2:
+        mean_dist = np.nanmean(dists)
+    else:
+        mean_dist = np.nanmean(dists, axis=(0,2))
 
     return mean_dist
 
@@ -59,7 +70,10 @@ def rmse(estimates, B):
     """
     squared_errors = (estimates-B)**2
     squared_errors = np.array(squared_errors, dtype=float)
-    mse = np.mean(squared_errors, axis=(0,2))
+    if len(np.shape(squared_errors)) == 2:
+        mse = np.nanmean(squared_errors)
+    else:
+        mse = np.nanmean(squared_errors, axis=(0,2))
     rmse = np.sqrt(mse)
 
     return rmse
@@ -76,7 +90,7 @@ def percent_tau_zero(taus):
         Compute the proportion of iterations where tau^2 was estimated to be 0.
     """
     iszero = [tau == 0 for tau in taus]
-    pct_zero = np.mean(iszero)
+    pct_zero = np.nanmean(iszero)
     
     return pct_zero
 
@@ -104,39 +118,43 @@ def compute_metrics(estimates, variances, taus, beta):
     """
         Compute all metrics for simulation study.
     """
-    n_obs = np.size(estimates, axis=0)
+    n_obs = np.size(beta, axis=0)
     n_methods = np.size(estimates, axis=1)
-    n_coefs = np.size(estimates, axis=2)
+    n_coefs = np.size(beta, axis=1)
 
     B = pivot_beta(beta, n_obs, n_coefs, n_methods)
     pt_estimates = estimates[:,5,:]
     pt_variances = variances[:,5,:]
-    valid_indices = find_valid_est(pt_estimates)
-    valid_pt_est = pt_estimates[valid_indices,:]
-    valid_pt_var = pt_estimates[valid_indices,:]
+    valid_pt_indices = find_valid_est(pt_estimates)
+    valid_pt_est = pt_estimates[valid_pt_indices,:]
+    valid_pt_var = pt_variances[valid_pt_indices,:]
 
-    non_pt_estimates = estimates[:,0:4,:]
-    non_pt_variances = variances[:,0:4,:]
+    non_pt_estimates = estimates[:,0:5,:]
+    non_pt_variances = variances[:,0:5,:]
+    valid_non_pt_indices = find_valid_est(non_pt_estimates)
+    valid_non_pt_est = non_pt_estimates[valid_non_pt_indices,:,:]
+    valid_non_pt_var = non_pt_variances[valid_non_pt_indices,:,:]
 
     # Compute metrics for non-PT methods
-    lower, upper = confint(non_pt_estimates, non_pt_variances)
-    non_pt_mcr = mean_coverage_rate(lower, upper, B[:,0:4,:])
+    lower, upper = confint(valid_non_pt_est, valid_non_pt_var)
+    non_pt_mcr = mean_coverage_rate(lower, upper, 
+                                    B[valid_non_pt_indices,0:5,:])
     non_pt_length = mean_length(lower, upper)
-    non_pt_rmse = rmse(non_pt_estimates, B[:,0:4,:])
-    pct_tau_zero = percent_tau_zero(taus)
+    non_pt_rmse = rmse(valid_non_pt_est, B[valid_non_pt_indices,0:5,:])
+    pct_tau_zero = percent_tau_zero(taus[valid_non_pt_indices])
 
     # Compute metrics for PT method
     lower, upper = confint(valid_pt_est, valid_pt_var)
-    pt_mcr = mean_coverage_rate(lower, upper, B[:,5,:])
+    pt_mcr = mean_coverage_rate(lower, upper, B[valid_pt_indices,5,:])
     pt_length = mean_length(lower, upper)
-    pt_rmse = rmse(valid_pt_est, B[:,5,:])
-    pct_none = pct_select_none(n_obs, valid_indices)
-    mean_selected = avg_pct_selected(pt_estimates, valid_indices)
+    pt_rmse = rmse(valid_pt_est, B[valid_pt_indices,5,:])
+    pct_none = pct_select_none(n_obs, valid_pt_indices)
+    mean_selected = avg_pct_selected(pt_estimates, valid_pt_indices)
 
     # Combine metrics
-    mean_coverage_rates = non_pt_mcr + pt_mcr
-    mean_cf_lengths = non_pt_length + pt_length
-    rmses = non_pt_rmse + pt_rmse
+    mean_coverage_rates = np.concatenate((non_pt_mcr, [pt_mcr]))
+    mean_cf_lengths = np.concatenate((non_pt_length, [pt_length]))
+    rmses = np.concatenate((non_pt_rmse, [pt_rmse]))
     relative_rmse = percent_rmse(rmses)
     
     return (mean_coverage_rates, mean_cf_lengths, rmses, relative_rmse,
