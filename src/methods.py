@@ -101,7 +101,9 @@ def empirical_bayes(y, X, ml_coefs, ml_cov, tol=1e-8, max_iter=100):
         R = e.T@W@e/np.sum(W)
         Vbar = np.sum(W@Vhat)/np.sum(W)
         tau_new = n/(n-p)*R-Vbar
-        tau_new = max(0, tau_new) # Variance estimate cannot be negative
+        if tau_new < 0:
+            tau_new = 0 # Variance estimate cannot be negative
+            break
         converge = abs(tau2-tau_new)
         n_iter = n_iter + 1
         tau2 = tau_new
