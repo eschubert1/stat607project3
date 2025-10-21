@@ -244,27 +244,31 @@ def zipper_plot():
     df_standard['length'] = df_standard['upper'] - df_standard['lower']
 
     # Sort intervals
-    df_sorted = df_standard.sort_values(by=['covered', 'length'])
+    df_sorted = df_standard.sort_values(by=['N', 'method', 'covered', 'length'])
 
     # Compute ranks per group
-    df_sorted['rank'] = df_sorted.groupby(['N', 'n', 'method'])['length'].rank(method='average', ascending=True)
+    df_sorted['row_num'] = range(1, len(df_sorted)+1)
+    df_sorted['row_num'] = np.where(np.isnan(df_sorted['length']), np.nan, df_sorted['row_num'])
+    df_sorted['row_num'] = np.where(df_sorted['length'] == 0, np.nan, df_sorted['row_num'])
+    df_sorted['rank'] = df_sorted.groupby(['N', 'method'])['row_num'].rank(method='average', 
+                                                        ascending=True, pct=True, na_option='bottom')
 
     def divide_two_cols(df_sub):
         return df_sub['rank'] / float(df_sub['n_sim'].max())
 
-    df_sorted['rel_rank'] = df_sorted.groupby(['N', 'n', 'method']).apply(divide_two_cols, 
-                include_groups=False).reset_index().set_index('level_3').drop(['N', 'n', 'method'],axis=1)
+    #df_sorted['rel_rank'] = df_sorted.groupby(['N', 'method']).apply(divide_two_cols, 
+    #            include_groups=False).reset_index().set_index('level_2').drop(['N', 'method'],axis=1)
 
     df_sorted['zero'] = 0
     df_sorted['one'] = 1
     # Create grid
-    g = sns.FacetGrid(df_sorted, row='N', col='method', hue='method')
+    g = sns.FacetGrid(df_sorted, row='N', col='method', hue='covered')
 
-    g = g.map(plt.hlines, 'rel_rank', 'lower', 'upper').set_axis_labels(
+    g = g.map(plt.hlines, 'rank', 'lower', 'upper').set_axis_labels(
         x_var="Confidence interval for $\\beta_1$", 
         y_var="Percentage of observations")
     
-    g = g.map(plt.vlines, 'zero', 'zero', 'one', color='black').set_axis_labels(
+    g = g.map(plt.vlines, 'zero', 'zero', 'one', color='black', lw=0.5).set_axis_labels(
         x_var="Confidence interval for $\\beta_1$", 
         y_var="Percentage of simulation iterations")
     
