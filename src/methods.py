@@ -21,7 +21,7 @@ def mle(y, X):
         Inverse of the observed information matrix
     """
     model = sm.GLM(y, X, family=sm.families.Binomial())
-    model_results = model.fit()
+    model_results = model.fit(method="IRLS")
     ml_coefs = model_results.params
     information_matrix = -model.hessian(ml_coefs)
     try:
@@ -31,29 +31,50 @@ def mle(y, X):
    
     return ml_coefs, ml_cov
 
+#@profile
 def logistic_irls(y, X, tol=1e-8, max_iter=1000):
     N = np.shape(X)[0]
     n = np.shape(X)[1]
 
     Z = np.hstack((np.ones((N,1)), X))
-    beta = np.ones(n+1)
+    #beta = np.ones(n+1)
+    beta = np.zeros(n+1)
+    mu = 0.5*np.ones(N)
     convergence = 1
-    step_size = 1
+    step_size = 2
     iter = 0
+    #Q, R = np.linalg.qr(Z.T)
     while (convergence > tol) & (iter < max_iter):
         iter = iter+1
-        mu = 1/(1+np.exp(-Z@beta))
-        S = np.diag(mu*(1-mu))
-        beta_new = beta + step_size*np.linalg.inv(Z.T@S@Z)@Z.T@(y-mu)
+        #print(np.shape(S))
+        s = np.sqrt(mu*(1-mu))
+        ZS = Z*np.reshape(s, (N, 1))
+        #Q, R = np.linalg.qr(ZS)
+        Sy = (1/(s+1e-10))*(y-mu)
+
+        # Modify Z.T to Z.T S1/2 - use ols updates
+        #beta_new = beta + step_size*np.linalg.inv(Z.T@S@Z)@Z.T@(y-mu)
+        #update = np.linalg.lstsq(ZS, Sy)[0]
+        update = np.linalg.solve(ZS.T@ZS, ZS.T@Sy)
+        #update = np.linalg.solve(Q.T, R@y)
+        #print(update)
+        beta_new = beta + step_size*update
         convergence = np.sqrt(sum(abs(beta_new-beta)))
         step_size = step_size/2
         beta = beta_new
-    mu_hat = 1/(1+np.exp(-X@beta))
-    S_hat = np.diag(mu_hat*(1-mu_hat))
-    mle_cov = np.linalg.inv(Z.T@S@Z)
+        mu = 1/(1+np.exp(-Z@beta))
+    if iter > max_iter:
+        print("Iteration limit reached!")
+    #mu_hat = 1/(1+np.exp(-Z@beta))
+    #S_hat = np.diag(mu_hat*(1-mu_hat))
+    ZS = Z*np.reshape(np.sqrt(mu*(1-mu)), (N, 1))
+    mle_cov = np.linalg.inv(ZS.T@ZS)
+    #mle_cov = np.linalg.inv(Z.T@S_hat@Z)
+    #mle_cov = np.ones((n,n))
     return beta[1:], mle_cov[1:,1:]
 
-# Still sometimes returns negative variance estimates...
+# Made some improvements - reduced matrix inversions by computing eigendecomposition once.
+# Eliminated for loop when computing standard errors
 def empirical_bayes(y, X, ml_coefs, ml_cov, tol=1e-8, max_iter=100):
     """
         Compute empirical bayes estimate beta_hat and its covariance.
@@ -93,14 +114,23 @@ def empirical_bayes(y, X, ml_coefs, ml_cov, tol=1e-8, max_iter=100):
     tau2 = 0
     n_iter = 0
     converge = 1
+    eigen, eigenvectors = np.linalg.eig(Vhat)
+    d1 = 1/eigen
+    Q = np.vstack(eigenvectors)
     while(converge > tol and n_iter < max_iter):
-        W = np.linalg.inv(Vhat + tau2*np.identity(n))
-        pi_hat = np.linalg.inv(Z.T@W@Z)@Z.T@W@ml_coefs
-        mu_hat = Z@pi_hat
-        e = ml_coefs - mu_hat
-        R = e.T@W@e/np.sum(W)
-        Vbar = np.sum(W@Vhat)/np.sum(W)
-        tau_new = n/(n-p)*R-Vbar
+        if tau2 == 0:
+            W = Q@np.diag(d1)@Q.T
+            Vnum = n
+        else:
+            #W = (np.eye(n)-Q@np.linalg.inv(D1 + np.eye(n)/tau2)@Q.T/tau2)/tau2
+            W = (np.eye(n)-Q@np.diag(1/(d1+1/tau2))@Q.T/tau2)/tau2
+            Vnum = np.sum(W@Vhat)
+
+        e = ml_coefs - Z@np.linalg.inv(Z.T@W@Z)@Z.T@W@ml_coefs
+        denom = np.sum(W)
+        R = e.T@W@e/denom
+        Vbar = Vnum / denom
+        tau_new = n/(n-p)*R - Vbar
         if tau_new < 0:
             tau_new = 0 # Variance estimate cannot be negative
             break
@@ -109,33 +139,28 @@ def empirical_bayes(y, X, ml_coefs, ml_cov, tol=1e-8, max_iter=100):
         tau2 = tau_new
 
     # Recompute with final tau2
-    W = np.linalg.inv(Vhat + tau2*np.identity(n))
-    pi_hat = np.linalg.inv(Z.T@W@Z)@Z.T@W@ml_coefs
-    mu_hat = Z@pi_hat
-    e = ml_coefs - mu_hat
-    R = e.T@W@e/np.sum(W)
-    Vbar = np.sum(W@Vhat)/np.sum(W)
-    
-    H = Z@np.linalg.inv(Z.T@W@Z)@Z.T@W
-    T = tau2*np.identity(n)
-    Vstar = (n-p-2)*Vhat/(n-p)
-    Tstar = T + Vhat - Vstar
-    G = W@(Vstar@H@W+Tstar)
-    beta_hat = G@ml_coefs
-
-    B = (n-2-p)/(n-p)*W*Vhat
-    #beta_hat = B@(np.ones(n))*mu_hat + (np.identity(n)-B)@ml_coefs
-
+    if tau2 == 0:
+            W = Q@np.diag(d1)@Q.T
+            Vnum = np.eye(n)
+    else:
+        #W = (np.eye(n)-Q@np.linalg.inv(D1 + np.eye(n)/tau2)@Q.T/tau2)/tau2
+        W = (np.eye(n)-Q@np.diag(1/(d1+1/tau2))@Q.T/tau2)/tau2
+        Vnum = W@Vhat
 
     H = Z@np.linalg.inv(Z.T@W@Z)@Z.T@W
-    A = 2/(n-p)*B@np.outer(e, e)@B.T
-    Vbar = W@Vhat/np.sum(W)
+    e = ml_coefs - H@ml_coefs
+    denom = np.sum(W)
+    R = e.T@W@e/denom
+    Vbar = Vnum / denom
 
-    covb = np.zeros(n)
-    for i in range(n):
-        covb[i] = (Vhat[i,i] - (1-H[i,i])*(Vhat@B)[i,i] + 
-        (Vbar[i,i] + tau2)*W[i,i]*A[i,i])
-        covb[i] = max(0, covb[i]) # Set to 0 if variance is negative
+    B = Vnum * (n-p-2)/(n-p)
+    Be = B@e
+    beta_hat = ml_coefs - Be
+    vb = np.diag(Vhat@B)
+    h = np.diag(H)
+    a = np.diag(2*np.outer(Be, Be)/(n-p))
+    covb = np.diag(Vhat) - (1-h)*vb + (np.diag(Vbar)+tau2)*np.diag(W)*a
+    covb[covb < 0] = 0
 
     return beta_hat, covb, tau2
 
@@ -165,20 +190,17 @@ def semi_bayes(y, X, ml_coefs, ml_cov, tau_guess):
     """
     n = np.size(X, axis=1)
     p = 1
-    Vhat = ml_cov
     mu_hat = np.mean(ml_coefs)
 
-    W = np.linalg.inv(Vhat + tau_guess*np.identity(n))
-    B = W@Vhat
+    W = np.linalg.inv(ml_cov + tau_guess*np.identity(n))
+    B = W@ml_cov
     beta_hat = B@np.ones(n)*mu_hat + (np.identity(n)-B)@ml_coefs
 
     # Compute covariance estimate with adjustment
     Z = np.ones((n,1))
     H = Z@np.linalg.inv(Z.T@W@Z)@Z.T@W
     
-    covb = np.zeros(n)
-    for i in range(n):
-        covb[i] = Vhat[i,i] - (1-H[i,i])*(Vhat@B)[i,i]
+    covb = np.diag(ml_cov) - (1-np.diag(H))*np.diag(ml_cov@B)
 
     return beta_hat, covb
 
@@ -207,13 +229,16 @@ def preliminary_testing(y, X, ml_coefs, ml_covs, alpha=0.10):
         Diagonal of inverse of observed information matrix from the full model,
         evaluated at beta_hat
     """
+    N = np.size(X, axis=0)
     n = np.size(X, axis=1)
     keep = [False]*n
 
     # Determine which covariates to retain
-    for i in range(n):
-        t = ml_coefs[i]/np.sqrt(ml_covs[i,i])
-        keep[i] = 2*(1-norm.cdf(abs(t))) <= alpha
+    #for i in range(n):
+    #    t = ml_coefs[i]/np.sqrt(ml_covs[i,i])
+    #    keep[i] = 2*(1-norm.cdf(abs(t))) <= alpha
+    t = ml_coefs / np.sqrt(np.diag(ml_covs))
+    keep = 2*(1-norm.cdf(abs(t))) <= alpha
 
     # If nothing selected, return nothing
     if(not np.any(keep)):
@@ -221,14 +246,18 @@ def preliminary_testing(y, X, ml_coefs, ml_covs, alpha=0.10):
 
     # Compute new estimates
     Xnew = X[:,keep]
-    b_hat, b_cov = mle(y, Xnew)
+    b_hat, b_cov = logistic_irls(y, Xnew)
     beta_hat = np.zeros(n)
     beta_hat[keep] = b_hat
 
     # Update covariance estimate to use hessian from original model
-    og_model = sm.GLM(y, X, family=sm.families.Binomial())
-    information_matrix = -og_model.hessian(beta_hat)
-    beta_cov = np.diag(np.linalg.inv(information_matrix))
+    mu = 1/(1+np.exp(-X@beta_hat))
+    s = np.sqrt(mu*(1-mu))
+    XS = X*np.reshape(np.sqrt(mu*(1-mu)), (N, 1))
+    beta_cov = np.diag(np.linalg.inv(XS.T@XS))
+    #og_model = sm.GLM(y, X, family=sm.families.Binomial())
+    #information_matrix = -og_model.hessian(beta_hat)
+    #beta_cov = np.diag(np.linalg.inv(information_matrix))
 
     return beta_hat, beta_cov
 
@@ -275,7 +304,7 @@ def compute_estimates(y, X, tau_guess, tol=1e-8, max_iter=100, alpha=0.10):
     mle, empirical_bayes, semi_bayes, preliminary_testing
     """
     n = np.shape(X)[1]
-    ml_beta, ml_cov = mle(y,X)
+    ml_beta, ml_cov = logistic_irls(y,X)
     if np.array_equal(ml_cov, np.zeros((n,n))):
         return np.array([[None]*n]*6), np.array([[None]*n]*6), None
     eb_beta, eb_cov, tau2 = empirical_bayes(y, X, ml_beta, ml_cov, tol=tol, max_iter=max_iter)
@@ -292,3 +321,4 @@ def compute_estimates(y, X, tau_guess, tol=1e-8, max_iter=100, alpha=0.10):
     variances = np.array(variances)
 
     return estimates, variances, tau2
+
