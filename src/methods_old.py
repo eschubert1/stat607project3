@@ -221,7 +221,7 @@ def preliminary_testing_old(y, X, ml_coefs, ml_covs, alpha=0.10):
 
     # Compute new estimates
     Xnew = X[:,keep]
-    b_hat, b_cov = mle(y, Xnew)
+    b_hat, b_cov = mle_old(y, Xnew)
     beta_hat = np.zeros(n)
     beta_hat[keep] = b_hat
 
@@ -275,14 +275,14 @@ def compute_estimates_old(y, X, tau_guess, tol=1e-8, max_iter=100, alpha=0.10):
     mle, empirical_bayes, semi_bayes, preliminary_testing
     """
     n = np.shape(X)[1]
-    ml_beta, ml_cov = mle(y,X)
+    ml_beta, ml_cov = mle_old(y,X)
     if np.array_equal(ml_cov, np.zeros((n,n))):
         return np.array([[None]*n]*6), np.array([[None]*n]*6), None
-    eb_beta, eb_cov, tau2 = empirical_bayes(y, X, ml_beta, ml_cov, tol=tol, max_iter=max_iter)
-    sb_half_beta, sb_half_cov = semi_bayes(y, X, ml_beta, ml_cov, tau_guess=0.5*tau_guess)
-    sb_beta, sb_cov = semi_bayes(y, X, ml_beta, ml_cov, tau_guess=tau_guess)
-    sb_two_beta, sb_two_cov = semi_bayes(y, X, ml_beta, ml_cov, tau_guess=2*tau_guess)
-    pt_beta, pt_cov = preliminary_testing(y, X, ml_beta, ml_cov, alpha=alpha)
+    eb_beta, eb_cov, tau2 = empirical_bayes_old(y, X, ml_beta, ml_cov, tol=tol, max_iter=max_iter)
+    sb_half_beta, sb_half_cov = semi_bayes_old(y, X, ml_beta, ml_cov, tau_guess=0.5*tau_guess)
+    sb_beta, sb_cov = semi_bayes_old(y, X, ml_beta, ml_cov, tau_guess=tau_guess)
+    sb_two_beta, sb_two_cov = semi_bayes_old(y, X, ml_beta, ml_cov, tau_guess=2*tau_guess)
+    pt_beta, pt_cov = preliminary_testing_old(y, X, ml_beta, ml_cov, alpha=alpha)
 
     estimates = [ml_beta, eb_beta, sb_half_beta, sb_beta, sb_two_beta, pt_beta]
     estimates = np.array(estimates)
