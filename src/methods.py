@@ -31,7 +31,6 @@ def mle(y, X):
    
     return ml_coefs, ml_cov
 
-#@profile
 def logistic_irls(y, X, tol=1e-8, max_iter=1000):
     N = np.shape(X)[0]
     n = np.shape(X)[1]
@@ -41,36 +40,23 @@ def logistic_irls(y, X, tol=1e-8, max_iter=1000):
     beta = np.zeros(n+1)
     mu = 0.5*np.ones(N)
     convergence = 1
-    step_size = 2
+    step_size = 1
     iter = 0
-    #Q, R = np.linalg.qr(Z.T)
     while (convergence > tol) & (iter < max_iter):
         iter = iter+1
-        #print(np.shape(S))
         s = np.sqrt(mu*(1-mu))
-        ZS = Z*np.reshape(s, (N, 1))
-        #Q, R = np.linalg.qr(ZS)
-        Sy = (1/(s+1e-10))*(y-mu)
-
-        # Modify Z.T to Z.T S1/2 - use ols updates
-        #beta_new = beta + step_size*np.linalg.inv(Z.T@S@Z)@Z.T@(y-mu)
-        #update = np.linalg.lstsq(ZS, Sy)[0]
-        update = np.linalg.solve(ZS.T@ZS, ZS.T@Sy)
-        #update = np.linalg.solve(Q.T, R@y)
-        #print(update)
+        ZS = Z*s[:, np.newaxis]
+        
+        update = np.linalg.solve(ZS.T@ZS, Z.T@(y-mu))
         beta_new = beta + step_size*update
-        convergence = np.sqrt(sum(abs(beta_new-beta)))
+        convergence = np.linalg.norm(beta_new-beta)
         step_size = step_size/2
         beta = beta_new
         mu = 1/(1+np.exp(-Z@beta))
     if iter > max_iter:
         print("Iteration limit reached!")
-    #mu_hat = 1/(1+np.exp(-Z@beta))
-    #S_hat = np.diag(mu_hat*(1-mu_hat))
     ZS = Z*np.reshape(np.sqrt(mu*(1-mu)), (N, 1))
     mle_cov = np.linalg.inv(ZS.T@ZS)
-    #mle_cov = np.linalg.inv(Z.T@S_hat@Z)
-    #mle_cov = np.ones((n,n))
     return beta[1:], mle_cov[1:,1:]
 
 # Made some improvements - reduced matrix inversions by computing eigendecomposition once.
@@ -122,7 +108,6 @@ def empirical_bayes(y, X, ml_coefs, ml_cov, tol=1e-8, max_iter=100):
             W = Q@np.diag(d1)@Q.T
             Vnum = n
         else:
-            #W = (np.eye(n)-Q@np.linalg.inv(D1 + np.eye(n)/tau2)@Q.T/tau2)/tau2
             W = (np.eye(n)-Q@np.diag(1/(d1+1/tau2))@Q.T/tau2)/tau2
             Vnum = np.sum(W@Vhat)
 
@@ -143,7 +128,6 @@ def empirical_bayes(y, X, ml_coefs, ml_cov, tol=1e-8, max_iter=100):
             W = Q@np.diag(d1)@Q.T
             Vnum = np.eye(n)
     else:
-        #W = (np.eye(n)-Q@np.linalg.inv(D1 + np.eye(n)/tau2)@Q.T/tau2)/tau2
         W = (np.eye(n)-Q@np.diag(1/(d1+1/tau2))@Q.T/tau2)/tau2
         Vnum = W@Vhat
 
@@ -234,9 +218,6 @@ def preliminary_testing(y, X, ml_coefs, ml_covs, alpha=0.10):
     keep = [False]*n
 
     # Determine which covariates to retain
-    #for i in range(n):
-    #    t = ml_coefs[i]/np.sqrt(ml_covs[i,i])
-    #    keep[i] = 2*(1-norm.cdf(abs(t))) <= alpha
     t = ml_coefs / np.sqrt(np.diag(ml_covs))
     keep = 2*(1-norm.cdf(abs(t))) <= alpha
 
@@ -255,9 +236,6 @@ def preliminary_testing(y, X, ml_coefs, ml_covs, alpha=0.10):
     s = np.sqrt(mu*(1-mu))
     XS = X*np.reshape(np.sqrt(mu*(1-mu)), (N, 1))
     beta_cov = np.diag(np.linalg.inv(XS.T@XS))
-    #og_model = sm.GLM(y, X, family=sm.families.Binomial())
-    #information_matrix = -og_model.hessian(beta_hat)
-    #beta_cov = np.diag(np.linalg.inv(information_matrix))
 
     return beta_hat, beta_cov
 
