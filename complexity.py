@@ -190,14 +190,15 @@ def complexity_plot(runtimes, path, title):
     plt.title(title)
     plt.xlabel("Log Sample size")
     plt.ylabel("Log Simulation time (s)")
-    plt.savefig(path)
+    plt.savefig(f"{path}.pdf")
+    plt.savefig(f"{path}.png")
     plt.close()
 
 if __name__ == "__main__":
     runtimes_old, runtimes_new = simulate_complexity(ALL_SCENARIOS, RNG_STREAMS)
     complexity_plot(runtimes_old,
                     title="Old average runtime as a function of sample size",
-                    path = 'results/figures/baseline_complexity.pdf')
+                    path = 'results/figures/baseline_complexity')
     complexity_plot(runtimes_new,
                     title="New average runtime as a function of sample size",
-                    path = 'results/figures/updated_complexity.pdf')
+                    path = 'results/figures/updated_complexity')

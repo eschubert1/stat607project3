@@ -290,6 +290,7 @@ def zipper_plot():
     plt.tight_layout()
 
     plt.savefig("results/figures/zipper_plot.pdf")
+    plt.savefig("results/figures/zipper_plot.png")
 
 def make_tables():
     with open(f"results/raw/metrics/simulation_metrics.pkl", "rb") as file:
@@ -322,6 +323,7 @@ def make_tables():
             )
         
         gt_table.save(f"results/figures/{file_name}.pdf")
+        gt_table.save(f"results/figures/{file_name}.png")
     
     # Make table for mean coverage
     results_table(mean_coverage_rates, 
