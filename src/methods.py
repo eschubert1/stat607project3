@@ -233,7 +233,7 @@ def preliminary_testing(y, X, ml_coefs, ml_covs, alpha=0.10):
     # Update covariance estimate to use hessian from original model
     mu = 1/(1+np.exp(-X@beta_hat))
     s = np.sqrt(mu*(1-mu))
-    XS = X*np.reshape(np.sqrt(mu*(1-mu)), (N, 1))
+    XS = X*s[:,np.newaxis]
     beta_cov = np.diag(np.linalg.inv(XS.T@XS))
 
     return beta_hat, beta_cov
