@@ -1,6 +1,9 @@
 import numpy as np
 import pandas as pd
+import sys
 import pickle
+import logging
+import warnings
 import seaborn as sns
 import matplotlib.pyplot as plt
 from great_tables import GT, loc
@@ -8,6 +11,16 @@ from great_tables import GT, loc
 from src.dgps import generate_data
 from src.methods import compute_estimates
 from src.metrics import compute_metrics, confint, find_valid_est
+
+if(sys.argv == "log"):
+# Log warnings
+    logging.basicConfig(
+            filename="warnings.log",  # Name of the file to save warnings
+            level=logging.WARNING,    # Set the logging level to WARNING
+            format='%(asctime)s - %(levelname)s - %(message)s'
+        )
+
+    logging.captureWarnings(True)
 
 def simulate_data(all_scenarios, rng_streams):
     """
@@ -73,8 +86,8 @@ def estimate(scenario, dataframes):
                 vars = np.array([[None]*n]*6)
                 tau = None
 
-        except Exception:
-            print("Error encountered in estimation")
+        except Exception as e:
+            warnings.warn(f'{e}')
             ests = np.array([[None]*n]*6)
             vars = np.array([[None]*n]*6)
             tau = None
