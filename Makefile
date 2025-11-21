@@ -22,3 +22,21 @@ clean:
 
 test:
 	pytest tests/run_tests.py
+	pytest tests/regression_test.py
+
+profile:
+	rm profiling/*.log
+	kernprof -l -o profiling/baseline_profile.lprof profiling/baseline_profile.py
+	python -m line_profiler profiling/baseline_profile.lprof > profiling/baseline_profiling_results.txt
+	kernprof -l -o profiling/optimized_profile.lprof profiling/optimized_profile.py
+	python -m line_profiler profiling/optimized_profile.lprof > profiling/optimized_profiling_results.txt
+
+complexity:
+	python complexity.py
+
+benchmark:
+	python benchmark.py
+
+stability-check:
+	rm -f warnings.log
+	python -c "from src.simulation import simulate_data; from src.config import ALL_SCENARIOS, RNG_STREAMS; simulate_data(ALL_SCENARIOS, RNG_STREAMS)" "log"
