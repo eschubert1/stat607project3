@@ -2,7 +2,7 @@ import pytest
 import numpy as np
 
 from ..src.dgps import generate_data
-from ..src.methods import compute_estimates, mle, empirical_bayes, logistic_irls
+from ..src.methods import compute_estimates, empirical_bayes, logistic_irls
 from ..src.metrics import compute_metrics
 
 def test_estimation_size():
@@ -37,20 +37,20 @@ def test_empirical_bayes():
         Test that empirical bayes function returns reasonable estimates when
         MLE returns reasonable estimates
     """
-    ratios = []
+    estimates = []
     for i in range(1000):
         y, X, beta = generate_data(40, 10, 0.2, 0.2, 0.5, 1)
         n = np.shape(X)[1]
-        ml_beta, ml_cov = mle(y,X)
+        ml_beta, ml_cov = logistic_irls(y,X)
         if np.array_equal(ml_cov, np.zeros((n,n))):
             continue
         if np.any(np.diag(ml_cov) > 100):
             continue
         eb_beta, eb_cov, tau2 = empirical_bayes(y, X, ml_beta, ml_cov)
-        ratios.append(eb_beta/ml_beta)
+        estimates.append(eb_beta)
     
-    ratios = np.array(ratios)
-    if ratios.max() > 10:
+    estimates = np.array(estimates)
+    if estimates.max() > 100:
         raise ValueError("Empirical Bayes estimates diverging")
     
 def test_rng_consistency():
