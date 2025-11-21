@@ -36,7 +36,6 @@ def logistic_irls(y, X, tol=1e-8, max_iter=1000):
     n = np.shape(X)[1]
 
     Z = np.hstack((np.ones((N,1)), X))
-    #beta = np.ones(n+1)
     beta = np.zeros(n+1)
     mu = 0.5*np.ones(N)
     convergence = 1
